@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: todo-api
+  template:
+    metadata:
+      labels:
+        app: todo-api
+    spec:
+      containers:
+      - name: todo-api
+        image: node:16-alpine
+        command: ["sh", "-c"]
+        args:
+          - |
+            mkdir -p /app
+            cat /app-readonly/app.js > /app/app.js
+            cat /app-readonly/package.json > /app/package.json
+            cd /app
+            npm install
+            node app.js
+        env:
+        - name: DB_HOST
+          value: postgres-service
+        - name: REDIS_HOST
+          value: redis-service
+        - name: PORT
+          value: "3000"
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "100m"
+       # livenessProbe:
+         # httpGet:
+          #  path: /health
+           # port: 3000
+         # initialDelaySeconds: 30
+         # periodSeconds: 10
+       # readinessProbe:
+        #  httpGet:
+         #   path: /health
+          #  port: 3000
+         # initialDelaySeconds: 5
+         # periodSeconds: 5
+        volumeMounts:
+        - name: app-code
+          mountPath: /app-readonly
+      volumes:
+      - name: app-code
+        configMap:
+          name: todo-app-code
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: todo-api-service
+spec:
+  selector:
+    app: todo-api
+  ports:
+  - port: 3000
+    targetPort: 3000
+  type: LoadBalancer
